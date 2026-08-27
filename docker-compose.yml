@@ -68,3 +68,54 @@ services:
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     depends_on:
       - spark-master
+
+  # 7. Postgres (Base Airflow)
+  postgres-airflow:
+    image: postgres:13
+    container_name: postgres-airflow
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - postgres-airflow-data:/var/lib/postgresql/data
+
+  # 8. Airflow Webserver
+  airflow-webserver:
+    image: apache/airflow:2.7.1-python3.10
+    container_name: airflow-webserver
+    restart: always
+    depends_on:
+      - postgres-airflow
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8082:8080"
+    command: webserver
+
+  # 9. Airflow Scheduler
+  airflow-scheduler:
+    image: apache/airflow:2.7.1-python3.10
+    container_name: airflow-scheduler
+    restart: always
+    depends_on:
+      - postgres-airflow
+      - airflow-webserver
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      - AIRFLOW__WEBSERVER__SECRET_KEY=secret
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: bash -c "airflow db init && airflow users create --username airflow --password airflow --firstname Airflow --lastname Admin --role Admin --email admin@example.com && airflow scheduler"
+
+volumes:
+  postgres-airflow-data:

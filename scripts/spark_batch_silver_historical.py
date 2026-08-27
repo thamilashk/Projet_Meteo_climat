@@ -3,7 +3,7 @@ import os
 os.environ["HADOOP_USER_NAME"] = "root"
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit, to_timestamp
+from pyspark.sql.functions import col, lit, to_timestamp, year
 
 # 1. SparkSession
 spark = (
@@ -15,9 +15,10 @@ spark = (
 
 spark.sparkContext.setLogLevel("WARN")
 
-print("--- TRAITEMENT SILVER : HISTORIQUE 2023 (BRONZE -> SILVER) ---")
+print("--- TRAITEMENT SILVER : HISTORIQUE MULTI-ANNÉES (BRONZE -> SILVER) ---")
 
-input_path = "hdfs://namenode:9000/bronze/source=meteo/year=2023/meteo_paris_2023.csv"
+# Lecture de l'ensemble des fichiers CSV historiques
+input_path = "hdfs://namenode:9000/bronze/source=meteo/year=*/*.csv"
 
 # 2. Lecture brute puis filtrage des lignes d'en-tête Open-Meteo
 raw_df = spark.read.text(input_path)
@@ -39,14 +40,14 @@ silver_hist_df = (
     .withColumnRenamed("temperature_2m (°C)", "temperature")
     .withColumnRenamed("relative_humidity_2m (%)", "humidity")
     .withColumnRenamed("precipitation (mm)", "precipitation")
-    .withColumn("station_id", lit("PARIS_2023"))
+    .withColumn("station_id", lit("PARIS_HIST"))
     .withColumn("latitude", lit(48.89279))
     .withColumn("longitude", lit(2.2920206))
     .withColumn("temperature", col("temperature").cast("double"))
     .withColumn("humidity", col("humidity").cast("double"))
     .withColumn("precipitation", col("precipitation").cast("double"))
     .withColumn("timestamp", to_timestamp(col("timestamp")))
-    .withColumn("year", lit(2023))
+    .withColumn("year", year(col("timestamp")))
     .dropDuplicates(["station_id", "timestamp"])
 )
 
@@ -55,4 +56,4 @@ output_path = "hdfs://namenode:9000/silver/meteo_historical"
 
 silver_hist_df.write.mode("overwrite").partitionBy("year").parquet(output_path)
 
-print(f"[OK] Table Silver historique générée avec succès : {output_path}")
+print(f"[OK] Table Silver historique générée avec succès pour toutes les années : {output_path}")
