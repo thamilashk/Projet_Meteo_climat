@@ -1,0 +1,14 @@
+1. Téléchargement : 
+curl -X GET "https://archive-api.open-meteo.com/v1/archive?latitude=48.8566&longitude=2.3522&start_date=2023-01-01&end_date=2023-12-31&hourly=temperature_2m,relative_humidity_2m,precipitation&format=csv" -o data/batch/meteo_paris_2023.csv
+
+2. Création du dossier pour l'année 2023 dans HDFS
+docker exec -it namenode hdfs dfs -mkdir -p /bronze/source=meteo/year=2023
+
+3. Copie du fichier CSV dans HDFS
+docker exec -i namenode hdfs dfs -put - /bronze/source=meteo/year=2023/meteo_paris_2023.csv < data/batch/meteo_paris_2023.csv
+
+4. Création du marqueur _SUCCESS au niveau de l'année
+docker exec -it namenode hdfs dfs -touchz /bronze/source=meteo/year=2023/_SUCCESS
+
+5. Vérification : 
+docker exec -it namenode hdfs dfs -ls /bronze/source=meteo/year=2023/
