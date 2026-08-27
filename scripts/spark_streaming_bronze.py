@@ -45,6 +45,7 @@ query = (
     .option("path", output_path)
     .partitionBy("ingestion_date")
     .outputMode("append")
+    .trigger(processingTime="30 seconds") 
     .start()
 )
 
